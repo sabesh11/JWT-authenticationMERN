@@ -1,55 +1,85 @@
-const express = require("express")
+const express=require("express")
 const app = express()
-const cors=require("cors")
-const jwt = require("jsonwebtoken")
-const bcrypt = require('bcryptjs')
-const bodypraser=require("body-parser")
-// const mongoose = require("mongoose");
-
-
-app.get('/',(req,res)=>{
-    res.send("Hey yuh...!!!")
-})
+const cors = require("cors");
+const jwt=require("jsonwebtoken")
+const bcrypt=require("bcryptjs")
 
 app.use(cors())
+app.use(express.json())
 
-app.use(bodypraser.json())
+app.listen(3001,()=>{
+    console.log("sever is running on port 3001")
+})
 
-const secretKey = 'abcdef';
 
-// const MONGODB_URL ="mongodb://localhost:27017/jwt-auth"
+const users=[]
 
-// mongoose.connect(MONGODB_URL)
-// .then(()=>{
-//     console.log("Connection successful"  + MONGODB_URL);
-// })
-// .catch((err)=>{
-// console.error("error in connecting",err.message);
-// })
+const secretKey= 'abcdef'
 
-const users =[]
+app.get("/", async(req,res)=>{
 
-const jwtToken = (req,res,next)=>{
+    res.status(200).send("Hey Yuh...!!!")
+})
+
+const jwtToken = async(req,res,next)=>{
+
+    const token = req.headers.authorization
+
+    if(!token) return res.status(401).send("access denied")
+
+    try{
+        const verified=jwt.verify(token,secretKey)
+        req.user=verified
+        next()
+    }
+    catch(e){
+        req.status(401).send("invalid token")
+    }
 
 }
 
-app.get('/signup', async (req,res)=>{
+app.post("/signup", async(req,res)=>{
     try{
-        const {username,password}=req.body
 
-        const hashPassword = await bcrypt.hash(password,10)
-        username.push({username,password:hashPassword})
+        const {username,password}=req.body
+        const hashedPassword=await bcrypt.hash(password,10)
+        console.log(`username: ${username} && password: ${password} `);
+        users.push({username:username,password:hashedPassword})
+        console.log(users);
 
         res.status(201).send("user created successfully")
-
+        
+         
     }
-    catch(err){
-       res.status(500).send("user not created")
+    catch(e){
+        res.status(500).send(e.message)
     }
-    
 })
 
-app.listen(3001,()=>{
-    console.log("server is running successfully")
+
+app.post('/login',async(req,res)=>{
+
+    try{
+        const {username,password} = res.body
+
+        const user = users.find(user=>user.username===username)
+
+        if(!user) return res.status("401").send("user not found")
+
+        const validPassword = jwt.compare(password,user.password)
+
+        if(!validPassword) return res.status("401").send("invalid password")
+
+        const token = jwt.sign({username:username.username},secretKey)
+
+        res.status(200).send(token)
+        
+    }
+    catch(e){
+        res.status(401).send(e.message)
+    }
 })
 
+app.get("/profile",jwtToken,async(req,res)=>{
+    res.status(200).send("hey shit ! focus on your career bro...!")
+})
